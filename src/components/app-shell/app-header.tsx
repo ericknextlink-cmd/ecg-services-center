@@ -1,11 +1,22 @@
 "use client"
 
+import { Fragment } from "react"
 import { Bell, Menu } from "lucide-react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 
 import { AppSidebar } from "@/components/app-shell/app-sidebar"
+import { usePageHeaderState } from "@/components/app-shell/page-header-context"
 import { ThemeSwitcher } from "@/components/theme/theme-switcher"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -20,25 +31,57 @@ import { initialsFromContact } from "@/lib/session"
 
 export function AppHeader({ onSignOut }: { onSignOut: () => void }) {
   const { user } = useSession()
+  const { header } = usePageHeaderState()
   const router = useRouter()
   const contactName = user?.contactName ?? "John Mensah"
   const designation = user?.designation ?? "Managing Director"
 
   return (
-    <header className="flex h-14 min-w-0 items-center justify-between gap-2 border-b bg-background px-3 sm:h-16 sm:gap-3 sm:px-4">
-      <Sheet>
-        <SheetTrigger asChild>
-          <Button variant="ghost" size="icon" className="shrink-0 lg:hidden">
-            <Menu />
-          </Button>
-        </SheetTrigger>
-        <SheetContent side="left" className="w-[min(16rem,100vw)] gap-0 p-0">
-          <AppSidebar />
-        </SheetContent>
-      </Sheet>
-      <Button variant="ghost" size="icon" className="hidden shrink-0 lg:inline-flex">
-        <Menu />
-      </Button>
+    <header className="flex h-14 min-w-0 items-center justify-between gap-2 border-b bg-white px-3 sm:h-16 sm:gap-3 sm:px-5 dark:bg-background">
+      <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+        <Sheet>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon" className="shrink-0 lg:hidden">
+              <Menu />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="w-[min(16rem,100vw)] gap-0 p-0">
+            <AppSidebar />
+          </SheetContent>
+        </Sheet>
+        <Button variant="ghost" size="icon" className="hidden shrink-0 lg:inline-flex">
+          <Menu />
+        </Button>
+        {header.title ? (
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-ecg-navy sm:text-base dark:text-foreground">
+              {header.title}
+            </p>
+            {header.breadcrumbs?.length ? (
+              <Breadcrumb className="hidden sm:block">
+                <BreadcrumbList className="gap-1 text-xs">
+                  {header.breadcrumbs.map((crumb, index) => (
+                    <Fragment key={`${crumb.label}-${index}`}>
+                      {index > 0 ? <BreadcrumbSeparator /> : null}
+                      <BreadcrumbItem>
+                        {crumb.href && index < header.breadcrumbs!.length - 1 ? (
+                          <BreadcrumbLink asChild>
+                            <Link href={crumb.href}>{crumb.label}</Link>
+                          </BreadcrumbLink>
+                        ) : (
+                          <BreadcrumbPage className="text-ecg-blue">
+                            {crumb.label}
+                          </BreadcrumbPage>
+                        )}
+                      </BreadcrumbItem>
+                    </Fragment>
+                  ))}
+                </BreadcrumbList>
+              </Breadcrumb>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
 
       <div className="ml-auto flex min-w-0 items-center gap-1.5 sm:gap-3">
         <ThemeSwitcher className="hidden sm:flex" />

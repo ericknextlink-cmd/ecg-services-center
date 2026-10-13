@@ -14,7 +14,7 @@ export function SocialButtons({ action }: { action: "Continue" | "Sign up" }) {
       <Button
         type="button"
         variant="outline"
-        className="h-11 rounded-xl text-sm"
+        className="h-11 rounded-lg text-sm"
         onClick={() => announce("Google")}
       >
         <GoogleMark />
@@ -23,7 +23,7 @@ export function SocialButtons({ action }: { action: "Continue" | "Sign up" }) {
       <Button
         type="button"
         variant="outline"
-        className="h-11 rounded-xl text-sm"
+        className="h-11 rounded-lg text-sm"
         onClick={() => announce("Microsoft")}
       >
         <MicrosoftMark />

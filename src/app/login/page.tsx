@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Eye, EyeOff, Lock, Mail } from "lucide-react"
+import { ArrowRight, Eye, EyeOff, Lock, Mail } from "lucide-react"
 import { FormEvent, useState } from "react"
 import { toast } from "sonner"
 
@@ -50,10 +50,11 @@ export default function LoginPage() {
         <>
           Powering progress.
           <br />
-          Building trust.
+          <span className="text-ecg-blue">Building trust.</span>
         </>
       }
       description="A secure platform to register as a supplier and manage certification applications with confidence."
+      highlightCount={3}
     >
       <div className="mb-8 w-full rounded-2xl bg-card p-4 shadow-xl ring-1 ring-foreground/5 sm:mb-0 sm:rounded-3xl sm:p-6 lg:p-8">
         <div className="text-center">
@@ -123,11 +124,11 @@ export default function LoginPage() {
 
           <Button
             type="submit"
-            className="h-11 w-full rounded-xl bg-ecg-navy text-white hover:bg-ecg-navy/90"
+            className="relative h-11 w-full rounded-lg bg-ecg-navy text-white hover:bg-ecg-navy/90"
             disabled={isSubmitting}
           >
             Sign In
-            <span aria-hidden>→</span>
+            <ArrowRight className="absolute right-4 size-4" />
           </Button>
           <Button
             type="button"

@@ -1,16 +1,21 @@
 import type { LucideIcon } from "lucide-react"
 import {
+  BookOpen,
   Building2,
   CircleHelp,
+  FileBadge,
   FileText,
   FolderOpen,
   Headset,
   History,
   Home,
+  IdCard,
   PlusSquare,
   RefreshCw,
+  Scale,
   Settings,
   ShieldCheck,
+  UserPlus,
   Users,
   Wallet,
 } from "lucide-react"
@@ -73,15 +78,49 @@ export const APP_NAVIGATION: AppNavGroup[] = [
   },
 ]
 
-export const MARKETING_NAV = [
+export type MarketingNavTint = "blue" | "green" | "purple" | "navy"
+
+export type MarketingNavChild = {
+  label: string
+  href: string
+  description: string
+  icon: LucideIcon
+  tint: MarketingNavTint
+}
+
+export type MarketingNavItem = {
+  label: string
+  href: string
+  children?: MarketingNavChild[]
+}
+
+export const MARKETING_NAV: MarketingNavItem[] = [
   { label: "Home", href: "/" },
   {
     label: "Applications",
     href: "/#applications",
     children: [
-      { label: "Register as a Supplier", href: "/#applications" },
-      { label: "Classification Certificate", href: "/#applications" },
-      { label: "External Licence", href: "/#applications" },
+      {
+        label: "Register as a Supplier",
+        href: "/signup",
+        description: "Onboard your company as an official ECG vendor.",
+        icon: UserPlus,
+        tint: "blue",
+      },
+      {
+        label: "Classification Certificate",
+        href: "/signup",
+        description: "Apply for or manage an ECG classification certificate.",
+        icon: FileBadge,
+        tint: "green",
+      },
+      {
+        label: "External Licence",
+        href: "/signup",
+        description: "Apply for or manage an external licence.",
+        icon: IdCard,
+        tint: "purple",
+      },
     ],
   },
   { label: "How It Works", href: "/how-it-works" },
@@ -89,14 +128,38 @@ export const MARKETING_NAV = [
     label: "Resources",
     href: "/resources",
     children: [
-      { label: "User Guide", href: "/resources" },
-      { label: "FAQs", href: "/help" },
-      { label: "Policies", href: "/resources" },
-      { label: "Terms & Conditions", href: "/legal/terms" },
+      {
+        label: "User Guide",
+        href: "/resources",
+        description: "Step-by-step help for every application type.",
+        icon: BookOpen,
+        tint: "navy",
+      },
+      {
+        label: "FAQs",
+        href: "/help",
+        description: "Answers to common registration questions.",
+        icon: CircleHelp,
+        tint: "blue",
+      },
+      {
+        label: "Policies",
+        href: "/resources",
+        description: "Vendor rules, requirements, and compliance.",
+        icon: ShieldCheck,
+        tint: "green",
+      },
+      {
+        label: "Terms & Conditions",
+        href: "/legal/terms",
+        description: "The legal terms that govern portal use.",
+        icon: Scale,
+        tint: "navy",
+      },
     ],
   },
   { label: "Help & Support", href: "/help" },
-] as const
+]
 
 export const FOOTER_QUICK_LINKS = [
   { label: "Home", href: "/" },

@@ -1,321 +1,348 @@
 "use client"
 
-import { useRouter } from "next/navigation"
-import { useMemo, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { useEffect, useMemo, useRef, useState } from "react"
+import {
+  ArrowLeft,
+  ArrowRight,
+  Briefcase,
+  Building2,
+  FileBadge,
+  Landmark,
+  Send,
+  ShieldCheck,
+} from "lucide-react"
 import { toast } from "sonner"
 
-import { ClassificationTables } from "@/components/classification/classification-tables"
+import { usePageHeader } from "@/components/app-shell/page-header-context"
+import { BankStep } from "@/components/applications/steps/bank-step"
+import { CompanyStep } from "@/components/applications/steps/company-step"
+import { DirectorsStep } from "@/components/applications/steps/directors-step"
+import { DocumentsStep } from "@/components/applications/steps/documents-step"
+import { ExperienceStep } from "@/components/applications/steps/experience-step"
+import { LicenseStep } from "@/components/applications/steps/license-step"
+import { PersonnelStep } from "@/components/applications/steps/personnel-step"
+import { ReviewStep } from "@/components/applications/steps/review-step"
+import { WizardAside } from "@/components/applications/wizard-aside"
+import { WizardStepper } from "@/components/applications/wizard-stepper"
 import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Progress } from "@/components/ui/progress"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
 import { useSession } from "@/hooks/use-session"
 import {
   applicationTypeById,
-  REQUIRED_DOCUMENTS,
   type ApplicationTypeId,
 } from "@/lib/data/applications"
-import { CLASSIFICATION_CATEGORIES } from "@/lib/data/classification"
-import { upsertApplication } from "@/lib/session"
+import {
+  WIZARD_PAGE_COPY,
+  WIZARD_STEPS,
+  canAdvance,
+  createInitialPayload,
+  type WizardPayload,
+  type WizardStepId,
+} from "@/lib/data/wizard"
+import { upsertApplication, type StoredApplication } from "@/lib/session"
 
-const STEPS = ["Details", "Scope", "Documents", "Review"] as const
+const STEP_ICONS: Record<WizardStepId, typeof Building2> = {
+  company: Building2,
+  directors: Building2,
+  documents: FileBadge,
+  license: FileBadge,
+  experience: Briefcase,
+  personnel: ShieldCheck,
+  bank: Landmark,
+  review: FileBadge,
+}
+
+function isWizardPayload(value: unknown): value is WizardPayload {
+  if (!value || typeof value !== "object") {
+    return false
+  }
+  const candidate = value as WizardPayload
+  return Boolean(candidate.company && candidate.directors && candidate.bank)
+}
 
 export function ApplicationWizard({ type }: { type: ApplicationTypeId }) {
   const applicationType = applicationTypeById(type)
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const draftId = searchParams.get("draft")
   const { user, applications, saveApplications } = useSession()
-  const [step, setStep] = useState(0)
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([])
-  const [uploadedDocuments, setUploadedDocuments] = useState<string[]>([])
-  const [notes, setNotes] = useState("")
-  const [yearsInOperation, setYearsInOperation] = useState("5")
-  const [technicalStaff, setTechnicalStaff] = useState("8")
-  const [region, setRegion] = useState("Greater Accra")
+  const steps = WIZARD_STEPS[type]
+  const copy = WIZARD_PAGE_COPY[type]
+  const [stepIndex, setStepIndex] = useState(0)
+  const [applicationId, setApplicationId] = useState<string | null>(null)
+  const [payload, setPayload] = useState<WizardPayload>(() => createInitialPayload(user))
 
-  const documents = REQUIRED_DOCUMENTS[type]
-  const progress = ((step + 1) / STEPS.length) * 100
+  const didLoad = useRef(false)
+  useEffect(() => {
+    if (didLoad.current) {
+      return
+    }
+    didLoad.current = true
 
-  const canContinue = useMemo(() => {
-    if (step === 1 && type === "classification") {
-      return selectedCategories.length > 0
+    const existing = draftId
+      ? applications.find((item) => item.id === draftId && item.type === type)
+      : undefined
+
+    if (existing && isWizardPayload(existing.payload)) {
+      setApplicationId(existing.id)
+      setPayload(existing.payload)
+      const savedStep = existing.payload as WizardPayload & { stepIndex?: number }
+      if (typeof savedStep.stepIndex === "number") {
+        setStepIndex(Math.min(savedStep.stepIndex, steps.length - 1))
+      }
+      return
     }
-    if (step === 2) {
-      return uploadedDocuments.length === documents.length
+
+    setApplicationId(crypto.randomUUID())
+    setPayload(createInitialPayload(user))
+  }, [applications, draftId, steps.length, type, user])
+
+  const current = steps[stepIndex]
+  const PageIcon = STEP_ICONS[current.id]
+  const pageTitle = current.id === "experience" ? current.title : copy.title
+  const pageSubtitle =
+    current.id === "experience"
+      ? "Provide details of relevant work experience in electrical installations or related projects."
+      : copy.subtitle
+
+  usePageHeader({
+    title: "New Application",
+    breadcrumbs: [
+      { label: "Dashboard", href: "/app/dashboard" },
+      { label: "New Application", href: "/app/applications/new" },
+      { label: applicationType?.shortTitle ?? copy.title, href: `/app/applications/new/${type}` },
+      { label: current.title },
+    ],
+  })
+
+  const canContinue = useMemo(
+    () => (current.id === "review" ? true : canAdvance(current.id, payload)),
+    [current.id, payload],
+  )
+
+  function persist(status: StoredApplication["status"], nextPayload = payload) {
+    if (!applicationId || !applicationType) {
+      return
     }
-    return true
-  }, [documents.length, selectedCategories.length, step, type, uploadedDocuments.length])
+
+    const application: StoredApplication = {
+      id: applicationId,
+      type,
+      title: `${applicationType.title} — ${nextPayload.company.companyName || user?.companyName || "New application"}`,
+      status,
+      createdAt:
+        applications.find((item) => item.id === applicationId)?.createdAt ??
+        new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      payload: { ...nextPayload, stepIndex },
+    }
+    upsertApplication(application)
+    saveApplications([
+      application,
+      ...applications.filter((item) => item.id !== application.id),
+    ])
+  }
+
+  function saveAndExit() {
+    persist("draft")
+    toast.success("Draft saved. You can continue later.")
+    router.push("/app/applications")
+  }
+
+  function submit() {
+    if (!payload.declared) {
+      toast.error("Please accept the declaration before submitting.")
+      return
+    }
+    persist("submitted")
+    toast.success("Application submitted. ECG will review it shortly.")
+    router.push("/app/applications")
+  }
 
   if (!applicationType) {
     return <p>Unknown application type.</p>
   }
 
-  function toggleCategory(categoryId: string) {
-    setSelectedCategories((current) =>
-      current.includes(categoryId)
-        ? current.filter((id) => id !== categoryId)
-        : [...current, categoryId],
-    )
-  }
-
-  function toggleDocument(documentName: string) {
-    setUploadedDocuments((current) =>
-      current.includes(documentName)
-        ? current.filter((name) => name !== documentName)
-        : [...current, documentName],
-    )
-  }
-
-  function submit(status: "draft" | "submitted") {
-    const application = {
-      id: crypto.randomUUID(),
-      type,
-      title: `${applicationType!.title} — ${user?.companyName ?? "New application"}`,
-      status,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      payload: {
-        selectedCategories,
-        uploadedDocuments,
-        notes,
-        yearsInOperation,
-        technicalStaff,
-        region,
-        companyName: user?.companyName,
-      },
-    }
-    upsertApplication(application)
-    saveApplications([application, ...applications.filter((item) => item.id !== application.id)])
-    toast.success(
-      status === "draft"
-        ? "Draft saved. You can continue later."
-        : "Application submitted. ECG will review it shortly.",
-    )
-    router.push("/app/applications")
-  }
-
   return (
-    <div className="mx-auto max-w-4xl">
-      <p className="text-sm font-medium text-ecg-blue dark:text-ecg-gold">New application</p>
-      <h1 className="mt-1 text-2xl font-bold sm:text-3xl">{applicationType.title}</h1>
-      <p className="mt-2 text-sm text-muted-foreground sm:text-base">{applicationType.dashboardDescription}</p>
-      <div className="mt-6">
-        <div className="mb-2 flex justify-between gap-2 text-xs font-medium text-muted-foreground">
-          {STEPS.map((label, index) => (
-            <span key={label} className={index <= step ? "text-foreground" : undefined}>
-              {index + 1}
-              <span className="hidden sm:inline">. {label}</span>
-            </span>
-          ))}
+    <div className="mx-auto max-w-6xl">
+      <div className="mb-6 flex items-start gap-3">
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-ecg-blue">
+          <PageIcon className="size-5" />
+        </span>
+        <div>
+          <h1 className="text-xl font-bold text-ecg-navy sm:text-2xl">{pageTitle}</h1>
+          <p className="mt-1 text-sm text-slate-500">{pageSubtitle}</p>
         </div>
-        <Progress value={progress} />
       </div>
 
-      <div className="mt-6 rounded-2xl border bg-card p-4 sm:mt-8 sm:rounded-3xl sm:p-6">
-        {step === 0 ? (
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Company">
-              <Input value={user?.companyName ?? ""} readOnly />
-            </Field>
-            <Field label="Primary contact">
-              <Input value={user?.contactName ?? ""} readOnly />
-            </Field>
-            <Field label="Region of operation">
-              <Select value={region} onValueChange={setRegion}>
-                <SelectTrigger className="h-10 w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {[
-                    "Greater Accra",
-                    "Ashanti",
-                    "Western",
-                    "Eastern",
-                    "Central",
-                    "Northern",
-                    "Volta",
-                  ].map((item) => (
-                    <SelectItem key={item} value={item}>
-                      {item}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field label="Years in operation">
-              <Input
-                value={yearsInOperation}
-                onChange={(event) => setYearsInOperation(event.target.value)}
-              />
-            </Field>
-            <Field label="Technical staff count">
-              <Input
-                value={technicalStaff}
-                onChange={(event) => setTechnicalStaff(event.target.value)}
-              />
-            </Field>
-            <div className="sm:col-span-2">
-              <Field label="Notes for ECG reviewers">
-                <Textarea
-                  value={notes}
-                  onChange={(event) => setNotes(event.target.value)}
-                  placeholder="Share relevant project experience, equipment, or specialisations."
-                />
-              </Field>
-            </div>
-          </div>
-        ) : null}
+      <div className="mb-6 overflow-x-auto rounded-2xl border border-slate-100 bg-white px-3 py-5 sm:px-6">
+        <WizardStepper steps={steps} currentIndex={stepIndex} />
+      </div>
 
-        {step === 1 ? (
-          type === "classification" ? (
-            <div className="space-y-6">
-              <p className="text-sm text-muted-foreground">
-                Select one or more work categories from ECG&apos;s classification schedule.
-                Your class is assigned after evaluation against the score bands below.
-              </p>
-              <div className="space-y-3">
-                {CLASSIFICATION_CATEGORIES.map((category) => (
-                  <label
-                    key={category.id}
-                    className="flex items-start gap-3 rounded-2xl border p-4"
-                  >
-                    <Checkbox
-                      checked={selectedCategories.includes(category.id)}
-                      onCheckedChange={() => toggleCategory(category.id)}
-                      className="mt-1"
-                    />
-                    <span>
-                      <span className="block text-xs font-semibold text-muted-foreground">
-                        Category {category.code}
-                      </span>
-                      <span className="text-sm">{category.title}</span>
-                    </span>
-                  </label>
-                ))}
-              </div>
-              <ClassificationTables selectedCategoryIds={selectedCategories} />
-            </div>
-          ) : (
-            <div className="space-y-4 text-sm text-muted-foreground">
-              <p>
-                {type === "supplier"
-                  ? "Tell ECG the goods or services you can supply. This profile is used for tender invitations."
-                  : "Describe the electrical works you intend to undertake under an External Licence."}
-              </p>
-              <Field label="Scope summary">
-                <Textarea
-                  value={notes}
-                  onChange={(event) => setNotes(event.target.value)}
-                  placeholder="Summarise your scope of work or supply."
-                />
-              </Field>
-            </div>
-          )
-        ) : null}
-
-        {step === 2 ? (
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              Mark each required document as uploaded. File storage will be connected in a later phase.
-            </p>
-            {documents.map((documentName) => (
-              <label key={documentName} className="flex items-center gap-3 rounded-2xl border p-4">
-                <Checkbox
-                  checked={uploadedDocuments.includes(documentName)}
-                  onCheckedChange={() => toggleDocument(documentName)}
-                />
-                <span className="text-sm">{documentName}</span>
-              </label>
-            ))}
-          </div>
-        ) : null}
-
-        {step === 3 ? (
-          <div className="space-y-4 text-sm">
-            <p>
-              <span className="font-medium">Company:</span> {user?.companyName}
-            </p>
-            <p>
-              <span className="font-medium">Type:</span> {applicationType.title}
-            </p>
-            <p>
-              <span className="font-medium">Region:</span> {region}
-            </p>
-            {type === "classification" ? (
-              <p>
-                <span className="font-medium">Categories:</span>{" "}
-                {selectedCategories
-                  .map(
-                    (id) =>
-                      CLASSIFICATION_CATEGORIES.find((category) => category.id === id)?.code,
-                  )
-                  .join(", ")}
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+        <div className="min-w-0 flex-1 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm sm:p-6">
+          <div className="mb-5">
+            <h2 className="text-base font-semibold text-ecg-navy">{current.title}</h2>
+            {current.id === "company" ? (
+              <p className="mt-1 text-sm text-slate-500">
+                Provide basic information about your company.
               </p>
             ) : null}
-            <p>
-              <span className="font-medium">Documents attached:</span> {uploadedDocuments.length}/
-              {documents.length}
-            </p>
-            <p className="text-muted-foreground">
-              Submitting this application does not guarantee certification. ECG will evaluate
-              capacity, documents and, for classification, assign a class using the published score bands.
-            </p>
           </div>
-        ) : null}
 
-        <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:flex-wrap sm:justify-between">
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full sm:w-auto"
-            onClick={() => (step === 0 ? router.back() : setStep((current) => current - 1))}
-          >
-            Back
-          </Button>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Button type="button" variant="ghost" className="w-full sm:w-auto" onClick={() => submit("draft")}>
-              Save draft
-            </Button>
-            {step < STEPS.length - 1 ? (
+          {current.id === "company" ? (
+            <CompanyStep
+              company={payload.company}
+              onChange={(company) => setPayload((currentPayload) => ({ ...currentPayload, company }))}
+            />
+          ) : null}
+          {current.id === "directors" ? (
+            <DirectorsStep
+              directors={payload.directors}
+              onChange={(directors) =>
+                setPayload((currentPayload) => ({ ...currentPayload, directors }))
+              }
+            />
+          ) : null}
+          {current.id === "documents" ? (
+            <DocumentsStep
+              documents={payload.documents}
+              onChange={(documents) =>
+                setPayload((currentPayload) => ({ ...currentPayload, documents }))
+              }
+            />
+          ) : null}
+          {current.id === "license" ? (
+            <LicenseStep
+              license={payload.license}
+              onChange={(license) => setPayload((currentPayload) => ({ ...currentPayload, license }))}
+            />
+          ) : null}
+          {current.id === "experience" ? (
+            <ExperienceStep
+              experience={payload.experience}
+              onChange={(experience) =>
+                setPayload((currentPayload) => ({ ...currentPayload, experience }))
+              }
+            />
+          ) : null}
+          {current.id === "personnel" ? (
+            <PersonnelStep
+              personnel={payload.personnel}
+              onChange={(personnel) =>
+                setPayload((currentPayload) => ({ ...currentPayload, personnel }))
+              }
+            />
+          ) : null}
+          {current.id === "bank" ? (
+            <BankStep
+              bank={payload.bank}
+              onChange={(bank) => setPayload((currentPayload) => ({ ...currentPayload, bank }))}
+            />
+          ) : null}
+          {current.id === "review" ? (
+            <ReviewStep
+              type={type}
+              payload={payload}
+              onEdit={(stepId) => {
+                const index = steps.findIndex((step) => step.id === stepId)
+                if (index >= 0) {
+                  setStepIndex(index)
+                }
+              }}
+              onDeclaredChange={(declared) =>
+                setPayload((currentPayload) => ({ ...currentPayload, declared }))
+              }
+            />
+          ) : null}
+
+          <div className="mt-8 flex flex-col gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:items-center sm:justify-between">
+            {stepIndex === 0 ? (
               <Button
                 type="button"
-                className="w-full sm:w-auto"
-                disabled={!canContinue}
-                onClick={() => setStep((current) => current + 1)}
+                variant="outline"
+                className="h-11 rounded-lg px-5"
+                onClick={saveAndExit}
               >
-                Continue
+                Save & Exit
               </Button>
             ) : (
-              <Button type="button" className="w-full sm:w-auto" onClick={() => submit("submitted")}>
-                Submit application
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-11 w-fit px-2 text-slate-600"
+                onClick={() => setStepIndex((currentStep) => currentStep - 1)}
+              >
+                <ArrowLeft className="size-4" />
+                Previous Step
               </Button>
             )}
+
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              {stepIndex === 0 ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="h-11 text-slate-500"
+                  onClick={() => router.push("/app/applications/new")}
+                >
+                  Cancel
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-11 rounded-lg px-5"
+                  onClick={saveAndExit}
+                >
+                  Save & Exit
+                </Button>
+              )}
+              {current.id === "review" ? (
+                <Button
+                  type="button"
+                  className="h-11 rounded-lg bg-ecg-blue px-5 text-white hover:bg-ecg-blue/90"
+                  onClick={submit}
+                >
+                  Submit Application
+                  <Send className="size-4" />
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  className="h-11 rounded-lg bg-ecg-blue px-5 text-white hover:bg-ecg-blue/90"
+                  disabled={!canContinue}
+                  onClick={() => setStepIndex((currentStep) => currentStep + 1)}
+                >
+                  Next Step
+                  <ArrowRight className="size-4" />
+                </Button>
+              )}
+            </div>
           </div>
         </div>
-      </div>
-    </div>
-  )
-}
 
-function Field({
-  label,
-  children,
-}: {
-  label: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className="space-y-1.5">
-      <Label>{label}</Label>
-      {children}
+        <WizardAside
+          steps={steps}
+          currentIndex={stepIndex}
+          variant={current.id === "review" ? "declaration" : "help"}
+          declaration={
+            <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+              <span className="mb-3 flex size-10 items-center justify-center rounded-full bg-sky-50 text-ecg-blue">
+                <ShieldCheck className="size-4" />
+              </span>
+              <p className="text-sm font-semibold text-ecg-navy">Declaration</p>
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                By submitting this application, you confirm that all information and documents
+                provided are true and correct.
+              </p>
+              <p className="mt-3 text-xs leading-5 text-slate-500">
+                You may be contacted for verification if further information is required.
+              </p>
+            </div>
+          }
+        />
+      </div>
     </div>
   )
 }

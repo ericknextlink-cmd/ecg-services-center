@@ -19,11 +19,12 @@ export function AppSidebar({ className }: { className?: string }) {
       )}
     >
       <div className="px-4 py-5">
-        <Link href="/app/dashboard" className="flex min-w-0 items-center gap-2.5">
-          <EcgLogo showWordmark={false} markClassName="size-10" />
-          <span className="text-[11px] font-extrabold tracking-[0.12em] text-foreground uppercase">
-            ECG
-          </span>
+        <Link href="/app/dashboard">
+          <EcgLogo
+            markClassName="size-10"
+            wordmarkClassName="text-ecg-navy dark:text-foreground"
+            taglineClassName="hidden"
+          />
         </Link>
       </div>
 

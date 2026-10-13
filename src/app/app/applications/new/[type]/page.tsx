@@ -1,3 +1,4 @@
+import { Suspense } from "react"
 import { notFound } from "next/navigation"
 
 import { ApplicationWizard } from "@/components/applications/application-wizard"
@@ -18,5 +19,9 @@ export default async function NewTypedApplicationPage({
     notFound()
   }
 
-  return <ApplicationWizard type={type as ApplicationTypeId} />
+  return (
+    <Suspense fallback={<p className="text-sm text-muted-foreground">Loading application...</p>}>
+      <ApplicationWizard type={type as ApplicationTypeId} />
+    </Suspense>
+  )
 }

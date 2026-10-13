@@ -20,6 +20,10 @@ export function MarketingFooter() {
             wordmarkClassName="text-white"
             taglineClassName="text-white/70"
           />
+          <p className="max-w-xs text-sm leading-6 text-white/75">
+            Reliable Suppliers. A Stronger ECG. Building a sustainable future
+            together.
+          </p>
           <div className="flex items-center gap-3 text-white/80">
             <SocialGlyph label="Facebook">
               <path d="M15 8h-2a2 2 0 0 0-2 2v2H9v3h2v7h3v-7h2.2l.8-3H14v-1.5c0-.3.2-.5.5-.5H16V8z" />

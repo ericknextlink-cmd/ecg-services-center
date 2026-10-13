@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
+  ArrowRight,
   Building2,
   Check,
   Eye,
@@ -265,11 +266,11 @@ export default function SignupPage() {
 
           <Button
             type="submit"
-            className="h-11 w-full rounded-xl bg-ecg-navy text-white hover:bg-ecg-navy/90"
+            className="relative h-11 w-full rounded-lg bg-ecg-navy text-white hover:bg-ecg-navy/90"
             disabled={isSubmitting}
           >
             Create Account
-            <span aria-hidden>→</span>
+            <ArrowRight className="absolute right-4 size-4" />
           </Button>
         </form>
 

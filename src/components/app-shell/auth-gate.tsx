@@ -5,6 +5,7 @@ import { useEffect } from "react"
 
 import { AppHeader } from "@/components/app-shell/app-header"
 import { AppSidebar } from "@/components/app-shell/app-sidebar"
+import { PageHeaderProvider } from "@/components/app-shell/page-header-context"
 import { useSession } from "@/hooks/use-session"
 import { clearSession } from "@/lib/session"
 
@@ -33,16 +34,18 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-svh min-w-0 overflow-x-clip bg-background">
-      <div className="hidden lg:flex">
-        <AppSidebar />
+    <PageHeaderProvider>
+      <div className="flex min-h-svh min-w-0 overflow-x-clip bg-[#f7f9fc] dark:bg-background">
+        <div className="hidden lg:flex">
+          <AppSidebar />
+        </div>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <AppHeader onSignOut={signOut} />
+          <main className="min-w-0 flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+            {children}
+          </main>
+        </div>
       </div>
-      <div className="flex min-w-0 flex-1 flex-col">
-        <AppHeader onSignOut={signOut} />
-        <main className="min-w-0 flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
-          {children}
-        </main>
-      </div>
-    </div>
+    </PageHeaderProvider>
   )
 }
