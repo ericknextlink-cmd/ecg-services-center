@@ -15,16 +15,40 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 })
 
+const SITE_TITLE = "ECG Vendor Registration & Certification System"
+const SITE_DESCRIPTION =
+  "A secure and transparent platform to register as a supplier and manage certification applications with the Electricity Company of Ghana."
+
 export const metadata: Metadata = {
   title: {
-    default: "ECG Vendor Registration & Certification System",
+    default: SITE_TITLE,
     template: "%s | ECG Vendor Portal",
   },
-  description:
-    "A secure and transparent platform to register as a supplier and manage certification applications with the Electricity Company of Ghana.",
+  description: SITE_DESCRIPTION,
+  applicationName: "ECG Vendor Portal",
+  keywords: [
+    "ECG",
+    "Electricity Company of Ghana",
+    "vendor registration",
+    "supplier certification",
+    "classification certificate",
+    "external licence",
+  ],
   icons: {
     icon: "/ecg-logo.png",
     apple: "/ecg-logo.png",
+  },
+  openGraph: {
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    type: "website",
+    locale: "en_GH",
+    siteName: "ECG Vendor Portal",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
   },
 }
 
