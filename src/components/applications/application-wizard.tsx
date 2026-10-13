@@ -32,6 +32,7 @@ import {
   type ApplicationTypeId,
 } from "@/lib/data/applications"
 import {
+  LICENSE_CLASSES,
   WIZARD_PAGE_COPY,
   WIZARD_STEPS,
   canAdvance,
@@ -40,6 +41,10 @@ import {
   type WizardStepId,
 } from "@/lib/data/wizard"
 import { upsertApplication, type StoredApplication } from "@/lib/session"
+import {
+  nextApplicationReference,
+  recordApplicationSubmission,
+} from "@/lib/workspace"
 
 const STEP_ICONS: Record<WizardStepId, typeof Building2> = {
   company: Building2,
@@ -65,7 +70,8 @@ export function ApplicationWizard({ type }: { type: ApplicationTypeId }) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const draftId = searchParams.get("draft")
-  const { user, applications, saveApplications } = useSession()
+  const renewalId = searchParams.get("renewal")
+  const { user, applications, workspace, saveApplications } = useSession()
   const steps = WIZARD_STEPS[type]
   const copy = WIZARD_PAGE_COPY[type]
   const [stepIndex, setStepIndex] = useState(0)
@@ -93,9 +99,40 @@ export function ApplicationWizard({ type }: { type: ApplicationTypeId }) {
       return
     }
 
+    const certificate = renewalId
+      ? workspace.certificates.find((item) => item.id === renewalId && item.type === type)
+      : undefined
+    const initial = createInitialPayload(user)
+
+    if (certificate) {
+      const source = applications.find((item) => item.id === certificate.applicationId)
+      const base = source && isWizardPayload(source.payload) ? source.payload : initial
+      setApplicationId(crypto.randomUUID())
+      setPayload({
+        ...base,
+        declared: false,
+        license: {
+          ...base.license,
+          licenseType:
+            certificate.type === "external-license"
+              ? "External Electrical Licence"
+              : "Contractor Licence",
+          licenseNumber: certificate.number,
+          dateOfIssue: certificate.issuedOn.slice(0, 10),
+          dateOfExpiry: certificate.expiresOn.slice(0, 10),
+          licenseClass: LICENSE_CLASSES.includes(certificate.classLabel)
+            ? certificate.classLabel
+            : "Class A / Electrical",
+          issuedBy: "Electricity Company of Ghana",
+          documentName: `${certificate.number}.pdf`,
+        },
+      })
+      return
+    }
+
     setApplicationId(crypto.randomUUID())
-    setPayload(createInitialPayload(user))
-  }, [applications, draftId, steps.length, type, user])
+    setPayload(initial)
+  }, [applications, draftId, renewalId, steps.length, type, user, workspace.certificates])
 
   const current = steps[stepIndex]
   const PageIcon = STEP_ICONS[current.id]
@@ -106,10 +143,13 @@ export function ApplicationWizard({ type }: { type: ApplicationTypeId }) {
       : copy.subtitle
 
   usePageHeader({
-    title: "New Application",
+    title: renewalId ? "Renewal" : "New Application",
     breadcrumbs: [
       { label: "Dashboard", href: "/app/dashboard" },
-      { label: "New Application", href: "/app/applications/new" },
+      {
+        label: renewalId ? "Renewals" : "New Application",
+        href: renewalId ? "/app/renewals" : "/app/applications/new",
+      },
       { label: applicationType?.shortTitle ?? copy.title, href: `/app/applications/new/${type}` },
       { label: current.title },
     ],
@@ -122,18 +162,32 @@ export function ApplicationWizard({ type }: { type: ApplicationTypeId }) {
 
   function persist(status: StoredApplication["status"], nextPayload = payload) {
     if (!applicationId || !applicationType) {
-      return
+      return null
     }
 
+    const existing = applications.find((item) => item.id === applicationId)
+    const now = new Date().toISOString()
+    const submittedNow = status === "submitted" && existing?.status !== "submitted"
     const application: StoredApplication = {
       id: applicationId,
+      reference: existing?.reference ?? nextApplicationReference(),
       type,
-      title: `${applicationType.title} — ${nextPayload.company.companyName || user?.companyName || "New application"}`,
+      title: `${renewalId ? "Renewal" : applicationType.title} — ${nextPayload.company.companyName || user?.companyName || "New application"}`,
       status,
-      createdAt:
-        applications.find((item) => item.id === applicationId)?.createdAt ??
-        new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      reviewStage: submittedNow ? 1 : existing?.reviewStage ?? 0,
+      reviewHistory: submittedNow
+        ? [
+            ...(existing?.reviewHistory ?? []),
+            {
+              title: "Submitted",
+              actor: user?.contactName ?? "Applicant",
+              at: now,
+              note: "Application received.",
+            },
+          ]
+        : existing?.reviewHistory ?? [],
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
       payload: { ...nextPayload, stepIndex },
     }
     upsertApplication(application)
@@ -141,6 +195,7 @@ export function ApplicationWizard({ type }: { type: ApplicationTypeId }) {
       application,
       ...applications.filter((item) => item.id !== application.id),
     ])
+    return application
   }
 
   function saveAndExit() {
@@ -154,9 +209,12 @@ export function ApplicationWizard({ type }: { type: ApplicationTypeId }) {
       toast.error("Please accept the declaration before submitting.")
       return
     }
-    persist("submitted")
-    toast.success("Application submitted. ECG will review it shortly.")
-    router.push("/app/applications")
+    const application = persist("submitted")
+    if (application) {
+      recordApplicationSubmission(application)
+      toast.success("Application submitted. ECG will review it shortly.")
+      router.push(`/app/applications/${application.id}`)
+    }
   }
 
   if (!applicationType) {

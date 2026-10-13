@@ -1,9 +1,15 @@
 "use client"
 
+import { toast } from "sonner"
+
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
+import { useSession } from "@/hooks/use-session"
+import { saveWorkspaceSettings } from "@/lib/workspace"
 
 export default function SettingsPage() {
+  const { workspace } = useSession()
+
   return (
     <div className="mx-auto max-w-3xl">
       <h1 className="text-2xl font-bold sm:text-3xl">Settings</h1>
@@ -18,7 +24,13 @@ export default function SettingsPage() {
               Application status updates from ECG.
             </p>
           </div>
-          <Switch defaultChecked />
+          <Switch
+            checked={workspace.settings.emailNotifications}
+            onCheckedChange={(checked) => {
+              saveWorkspaceSettings({ ...workspace.settings, emailNotifications: Boolean(checked) })
+              toast.success("Notification preference saved.")
+            }}
+          />
         </div>
         <div className="flex items-center justify-between gap-4">
           <div>
@@ -27,7 +39,13 @@ export default function SettingsPage() {
               Send review decisions to the primary contact number.
             </p>
           </div>
-          <Switch />
+          <Switch
+            checked={workspace.settings.smsAlerts}
+            onCheckedChange={(checked) => {
+              saveWorkspaceSettings({ ...workspace.settings, smsAlerts: Boolean(checked) })
+              toast.success("SMS preference saved.")
+            }}
+          />
         </div>
       </div>
     </div>

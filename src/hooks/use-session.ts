@@ -12,6 +12,7 @@ import {
   writeApplications,
   writeSession,
 } from "@/lib/session"
+import { type Workspace, readWorkspace } from "@/lib/workspace"
 
 function subscribeToSession(onStoreChange: () => void) {
   window.addEventListener(SESSION_EVENT, onStoreChange)
@@ -23,6 +24,15 @@ function subscribeToSession(onStoreChange: () => void) {
 }
 
 const EMPTY_APPLICATIONS: StoredApplication[] = []
+const EMPTY_WORKSPACE: Workspace = {
+  seeded: false,
+  documents: [],
+  certificates: [],
+  payments: [],
+  team: [],
+  notifications: [],
+  settings: { emailNotifications: true, smsAlerts: false },
+}
 
 function subscribeToClient() {
   return () => {}
@@ -40,6 +50,11 @@ export function useSession() {
     readApplications,
     () => EMPTY_APPLICATIONS,
   )
+  const workspace = useSyncExternalStore(
+    subscribeToSession,
+    readWorkspace,
+    () => EMPTY_WORKSPACE,
+  )
 
   const signIn = useCallback((nextUser: SessionUser) => {
     writeSession(nextUser)
@@ -56,6 +71,7 @@ export function useSession() {
   return {
     user,
     applications,
+    workspace,
     isReady: isClient,
     signIn,
     signOut,

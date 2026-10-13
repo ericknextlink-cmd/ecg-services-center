@@ -8,6 +8,7 @@ import { AppSidebar } from "@/components/app-shell/app-sidebar"
 import { PageHeaderProvider } from "@/components/app-shell/page-header-context"
 import { useSession } from "@/hooks/use-session"
 import { clearSession } from "@/lib/session"
+import { ensureDemoWorkspace } from "@/lib/workspace"
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const { user, isReady } = useSession()
@@ -17,6 +18,9 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (isReady && !user) {
       router.replace(`/login?next=${encodeURIComponent(pathname)}`)
+    }
+    if (isReady && user) {
+      ensureDemoWorkspace(user)
     }
   }, [isReady, pathname, router, user])
 

@@ -15,11 +15,21 @@ export type ApplicationStatus =
   | "approved"
   | "rejected"
 
+export type ReviewEvent = {
+  title: string
+  actor: string
+  at: string
+  note: string
+}
+
 export type StoredApplication = {
   id: string
+  reference: string
   type: "external-license" | "classification" | "supplier"
   title: string
   status: ApplicationStatus
+  reviewStage: number
+  reviewHistory: ReviewEvent[]
   createdAt: string
   updatedAt: string
   payload: Record<string, unknown>
@@ -111,12 +121,30 @@ export function readApplications(): StoredApplication[] {
   }
 
   try {
-    cachedApplications = JSON.parse(rawApplications) as StoredApplication[]
+    cachedApplications = (JSON.parse(rawApplications) as StoredApplication[]).map(
+      normalizeApplication,
+    )
   } catch {
     cachedApplications = EMPTY_APPLICATIONS
   }
 
   return cachedApplications
+}
+
+export function normalizeApplication(
+  application: StoredApplication & { reference?: string; reviewStage?: number; reviewHistory?: ReviewEvent[] },
+): StoredApplication {
+  const status = application.status
+  const reviewStage =
+    application.reviewStage ??
+    (status === "approved" ? 6 : status === "rejected" ? 2 : status === "under-review" ? 3 : status === "submitted" ? 1 : 0)
+
+  return {
+    ...application,
+    reference: application.reference || `APP-${application.id.replace(/-/g, "").slice(0, 8).toUpperCase()}`,
+    reviewStage,
+    reviewHistory: application.reviewHistory ?? [],
+  }
 }
 
 export function writeApplications(applications: StoredApplication[]) {
@@ -129,14 +157,13 @@ export function writeApplications(applications: StoredApplication[]) {
 
 export function upsertApplication(application: StoredApplication) {
   const applications = [...readApplications()]
-  const existingIndex = applications.findIndex(
-    (item) => item.id === application.id,
-  )
+  const next = normalizeApplication(application)
+  const existingIndex = applications.findIndex((item) => item.id === next.id)
 
   if (existingIndex >= 0) {
-    applications[existingIndex] = application
+    applications[existingIndex] = next
   } else {
-    applications.unshift(application)
+    applications.unshift(next)
   }
 
   writeApplications(applications)

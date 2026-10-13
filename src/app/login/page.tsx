@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/input-group"
 import { Label } from "@/components/ui/label"
 import { DEMO_USER, writeSession } from "@/lib/session"
+import { ensureDemoWorkspace, loadDemoWorkspace } from "@/lib/workspace"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -35,11 +36,13 @@ export default function LoginPage() {
     }
 
     setIsSubmitting(true)
-    writeSession({
+    const nextUser = {
       ...DEMO_USER,
       email,
       contactName: email.startsWith("john") ? DEMO_USER.contactName : "John Mensah",
-    })
+    }
+    writeSession(nextUser)
+    ensureDemoWorkspace(nextUser)
     toast.success("All set! Welcome back.")
     router.push("/app/dashboard")
   }
@@ -136,6 +139,7 @@ export default function LoginPage() {
             className="h-11 w-full rounded-xl"
             onClick={() => {
               writeSession(DEMO_USER)
+              loadDemoWorkspace(DEMO_USER)
               toast.success("All set! Welcome back, John.")
               router.push("/app/dashboard")
             }}

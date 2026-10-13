@@ -3,7 +3,7 @@
 import Link from "next/link"
 
 import { EmptyApplications } from "@/components/app-shell/empty-applications"
-import { Badge } from "@/components/ui/badge"
+import { StatusBadge } from "@/components/app-shell/status-badge"
 import { Button } from "@/components/ui/button"
 import { useSession } from "@/hooks/use-session"
 import { applicationTypeById } from "@/lib/data/applications"
@@ -37,6 +37,7 @@ export default function ApplicationsPage() {
                 className="flex flex-col gap-3 rounded-2xl border bg-card px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5"
               >
                 <Link href={`/app/applications/${application.id}`} className="min-w-0">
+                  <p className="text-xs font-semibold text-ecg-blue">{application.reference}</p>
                   <p className="font-medium break-words">{application.title}</p>
                   <p className="text-xs text-muted-foreground">
                     {applicationType?.title} · Updated{" "}
@@ -44,9 +45,7 @@ export default function ApplicationsPage() {
                   </p>
                 </Link>
                 <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="w-fit shrink-0 capitalize">
-                    {application.status.replace("-", " ")}
-                  </Badge>
+                  <StatusBadge status={application.status} />
                   {application.status === "draft" ? (
                     <Button asChild size="sm" className="bg-ecg-blue text-white hover:bg-ecg-blue/90">
                       <Link href={`/app/applications/new/${application.type}?draft=${application.id}`}>
